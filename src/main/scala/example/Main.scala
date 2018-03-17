@@ -1,7 +1,7 @@
 import java.util.Collections
 import java.util.concurrent.{AbstractExecutorService, TimeUnit}
 
-import cats.effect.IO
+import cats.effect.{Effect, IO}
 import fs2.StreamApp.ExitCode
 import fs2.{Stream, StreamApp}
 import kamon.executors.util.ContextAwareExecutorService
@@ -42,7 +42,7 @@ object Main extends StreamApp[IO] {
         .bindHttp(9000, "0.0.0.0")
         .mountService(server.KamonSupport(router))
         .withExecutionContext(ec)
-        .serve
+        .serve(Effect[IO], ec) // If I don't pass the execution context here as well it won't even propagate on the same thread
     } yield exitCode
   }
 }
