@@ -25,15 +25,16 @@ object Main extends StreamApp[IO] {
       logger  = LoggerFactory.getLogger(this.getClass)
       router  = Router(
         "/" -> HttpService[IO] {
-          case GET -> Root / "foo" =>
-            logger.info("foo")
-            client.expect[String]("http://localhost:9000/bar").unsafeRunAsync {
-              case Left(e)  => logger.error("bar failed")
-              case Right(s) => logger.error(s"bar returned $s")
-            }
-            Ok("foo")
-          case GET -> Root / "bar" =>
-            logger.info("bar")
+          case req@GET -> Root / "foo" =>
+            for {
+              _   <- IO.pure(1)
+              _    = logger.info("foo hs: " + req.headers.map(h => h.name -> h.value).mkString(", "))
+              res <- client.expect[String]("http://localhost:9000/bar")
+              r   <- Ok(s"foo and $res")
+            } yield r
+
+          case req@GET -> Root / "bar" =>
+            logger.info("bar hs: " + req.headers.map(h => h.name -> h.value).mkString(", "))
             Ok("bar")
         }
       )
@@ -41,8 +42,7 @@ object Main extends StreamApp[IO] {
       exitCode <- BlazeBuilder[IO]
         .bindHttp(9000, "0.0.0.0")
         .mountService(server.KamonSupport(router))
-        .withExecutionContext(ec)
-        .serve(Effect[IO], ec) // If I don't pass the execution context here as well it won't even propagate on the same thread
+        .serve
     } yield exitCode
   }
 }
