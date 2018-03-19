@@ -6,7 +6,8 @@ object Dependencies {
     "org.http4s"                       %% "http4s-dsl"                  % "0.18.0",
     "org.http4s"                       %% "http4s-blaze-server"         % "0.18.0",
     "org.http4s"                       %% "http4s-blaze-client"         % "0.18.0",
-    "org.http4s"                       %% "http4s-circe"                % "0.18.0"
+    "org.http4s"                       %% "http4s-circe"                % "0.18.0",
+    "io.circe"                         %% "circe-generic"               % "0.9.1"
   )
   lazy val logging = Seq(
     "ch.qos.logback"                   %  "logback-classic"             % "1.2.3" % Runtime
