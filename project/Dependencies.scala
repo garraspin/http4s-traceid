@@ -15,7 +15,7 @@ object Dependencies {
 
   lazy val monitoring = Seq(
     "io.kamon"                         %% "kamon-core"                  % "1.1.0",
-    "io.kamon"                         %% "kamon-http4s"                % "1.0.3",
+    "io.kamon"                         %% "kamon-http4s"                % "1.0.4",
     "io.kamon"                         %% "kamon-executors"             % "1.0.1",
     "io.kamon"                         %% "kamon-logback"               % "1.0.0"
   )

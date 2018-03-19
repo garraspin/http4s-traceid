@@ -35,15 +35,18 @@ object Main extends StreamApp[IO] with Logging {
   override def stream(args: List[String], requestShutdown: IO[Unit]): Stream[IO, ExitCode] = {
     for {
       client  <- Http1Client.stream[IO]()
+      kamonClient = kamon.http4s.middleware.client.KamonSupport(client)
       pingResource = new PingResource(kamon.http4s.middleware.client.KamonSupport(client))
       router  = Router(
         "/" -> HttpService[IO] {
           case req@GET -> Root / "foo" =>
             for {
-              _ <- IO { logger.info("GET foo") }
-              _ = logger.info("GET foo headers: " + req.headers.map(h => h.name -> h.value).mkString(", "))
-              res <- client.expect[String](Request[IO](method = GET, uri = uri("http://localhost:9000/bar"), headers = Headers.empty))
-              r <- Ok(s"GET foo and $res")
+              _   <- IO { 42 }
+              t1   = Thread.currentThread().getName
+              res <- kamonClient.expect[String](Request[IO](method = GET, uri = uri("http://localhost:9001/bar"), headers = Headers.empty))
+              t2   = Thread.currentThread().getName
+              _    = if (t1 != t2) logger.info(s"No TraceID when jumping from $t1 to $t2")
+                r   <- Ok(s"GET foo and $res")
             } yield r
 
           case request@POST -> Root / "foo" =>
@@ -53,19 +56,19 @@ object Main extends StreamApp[IO] with Logging {
               _   <- IO { logger.info("POST foo") }
               req <- request.as[Ping]
               _    = logger.info("POST foo headers: " + request.headers.map(h => h.name -> h.value).mkString(", "))
-              res <- client.expect[String](Request[IO](method = GET, uri = uri("http://localhost:9000/bar"), headers = Headers.empty))
+              res <- client.expect[String](Request[IO](method = GET, uri = uri("http://localhost:9001/bar"), headers = Headers.empty))
               r   <- Ok(s"POST foo ${req.msg} and $res")
             } yield r
 
           case req@GET -> Root / "bar" =>
-            logger.info("bar hs: " + req.headers.map(h => h.name -> h.value).mkString(", "))
+//            logger.info("bar hs: " + req.headers.map(h => h.name -> h.value).mkString(", "))
             Ok("bar")
         },
         "/ping" -> pingResource.endpoints
       )
 
       exitCode <- BlazeBuilder[IO]
-        .bindHttp(9000, "0.0.0.0")
+        .bindHttp(9001, "0.0.0.0")
         .mountService(server.KamonSupport(router))
         .serve
     } yield exitCode
@@ -77,27 +80,31 @@ class PingResource(client: Client[IO]) extends RequestHandling2 { //with Logging
   def endpoints: HttpService[IO] = HttpService[IO] {
     case request@POST -> Root => handleRequest(request)(postPing)
 
-    case request@POST -> Root / "pass" =>
+    case request@POST -> Root / "pass0" =>
       implicit val requestDecoder = jsonOf[IO, Ping]
       implicit val responseEncoder = jsonEncoderOf[IO, Pong]
       for {
         _   <- IO { logger.info("POST foo") }
         req <- request.as[Ping]
         _    = logger.info("POST foo headers: " + request.headers.map(h => h.name -> h.value).mkString(", "))
-        res <- client.expect[String](Request[IO](method = GET, uri = uri("http://localhost:9000/bar"), headers = Headers.empty))
+        res <- client.expect[String](Request[IO](method = GET, uri = uri("http://localhost:9001/bar"), headers = Headers.empty))
+        _    = logger.info("ping post client call")
         r   <- Ok(s"POST foo ${req.msg} and $res")
       } yield r
 
-    case request@POST -> Root / "pass" =>
+    case request@POST -> Root / "pass1" =>
       handleRequestInternal(request)
 
-    case request@POST -> Root / "pass" =>
+    case request@POST -> Root / "fail0" =>
       handleRequestGeneric[Ping, Pong](request)
 
-    case request@POST -> Root / "fail" =>
+    case request@POST -> Root / "fail1" =>
       handleRequestWithHandler[Ping, Pong](request) { ping =>
         for {
-          res <- client.expect[String](Request[IO](method = GET, uri = uri("http://localhost:9000/bar"), headers = Headers.empty))
+          _   <- IO { 42 }
+          _    = logger.info("ping pre client call")
+          res <- client.expect[String](Request[IO](method = GET, uri = uri("http://localhost:9001/bar"), headers = Headers.empty))
+          _    = logger.info("ping post client call")
         } yield Pong(res)
       }
   }
@@ -109,7 +116,8 @@ class PingResource(client: Client[IO]) extends RequestHandling2 { //with Logging
       _   <- IO { logger.info("POST foo") }
       req <- request.as[Ping]
       _    = logger.info("POST foo headers: " + request.headers.map(h => h.name -> h.value).mkString(", "))
-      res <- client.expect[String](Request[IO](method = GET, uri = uri("http://localhost:9000/bar"), headers = Headers.empty))
+      res <- client.expect[String](Request[IO](method = GET, uri = uri("http://localhost:9001/bar"), headers = Headers.empty))
+      _    = logger.info("POST foo post client call")
       r   <- Ok(s"POST foo ${req.msg} and $res")
     } yield r
   }
@@ -121,7 +129,8 @@ class PingResource(client: Client[IO]) extends RequestHandling2 { //with Logging
       _   <- IO { logger.info("POST foo") }
       req <- request.as[REQ]
       _    = logger.info("POST foo headers: " + request.headers.map(h => h.name -> h.value).mkString(", "))
-      res <- client.expect[String](Request[IO](method = GET, uri = uri("http://localhost:9000/bar"), headers = Headers.empty))
+      res <- client.expect[String](Request[IO](method = GET, uri = uri("http://localhost:9001/bar"), headers = Headers.empty))
+      _    = logger.info("POST foo post client call")
       r   <- Ok(s"POST foo $req and $res")
     } yield r
   }
@@ -142,7 +151,7 @@ class PingResource(client: Client[IO]) extends RequestHandling2 { //with Logging
     for {
       _   <- IO { 42 }
       _    = logger.info("pre bar call")
-      bar <- client.expect[String](Request[IO](method = GET, uri = uri("http://localhost:9000/bar"), headers = Headers.empty))
+      bar <- client.expect[String](Request[IO](method = GET, uri = uri("http://localhost:9001/bar"), headers = Headers.empty))
       _    = logger.info("post bar call")
       res <- IO { Pong(ping.msg + " and " + bar) }
       _    = logger.info("post res")
