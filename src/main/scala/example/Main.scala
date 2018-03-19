@@ -3,6 +3,7 @@ package example
 import java.util.Collections
 import java.util.concurrent.{AbstractExecutorService, TimeUnit}
 
+import Main.logger
 import cats.effect.IO
 import fs2.StreamApp.ExitCode
 import fs2.{Stream, StreamApp}
@@ -56,10 +57,11 @@ object Main extends StreamApp[IO] with Logging {
         "/" -> HttpService[IO] {
           case req@GET -> Root / "foo" =>
             for {
-              _   <- IO { logger.info("GET foo") }
-              _    = logger.info("TraceID logged before client call " + req.headers.map(h => h.name -> h.value).mkString(", "))
+              _   <- IO { 42 }
+              t1   = Thread.currentThread().getName
               res <- client.expect[String](Request[IO](method = GET, uri = Uri.unsafeFromString(s"http://localhost:$port/bar"), headers = Headers.empty))
-              _    = logger.info("TraceID sometimes not logged")
+              t2   = Thread.currentThread().getName
+              _    = if (t1 != t2) logger.info(s"Sometimes no TraceID when jumping from $t1 to $t2")
               r   <- Ok(s"GET foo and $res")
             } yield r
 
