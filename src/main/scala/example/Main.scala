@@ -42,10 +42,8 @@ object Main extends StreamApp[IO] with Logging {
     for {
       http4sclient <- Http1Client.stream[IO]()
       client        = HttpClient(kamon.http4s.middleware.client.KamonSupport(http4sclient))
-      pongService   = new PongService(client)
-      pangService   = new PangService
-      pengService   = new PengService
-      router        = Router("/pong" -> pongService.endpoints, "/pang" -> pangService.endpoints, "/peng" -> pengService.endpoints)
+      api           = new Api(client)
+      router        = Router("/" -> api.endpoints)
       exitCode     <- BlazeBuilder[IO]
         .bindHttp(port, "0.0.0.0")
         .mountService(server.KamonSupport(router))

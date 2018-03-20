@@ -14,11 +14,6 @@ import org.http4s.headers._
 
 case class HttpClient(client: Client[IO]) extends Logging {
 
-  def get[RESP : Decoder](uri: Uri): IO[RESP] = getWithErrorHandler(uri)(Map.empty)
-
-  def getWithErrorHandler[RESP : Decoder](uri: Uri)(errorHandler: PartialFunction[Throwable, IO[RESP]]): IO[RESP] =
-    doRequest(Request[IO](GET, uri))(errorHandler)
-
   def post[REQ : Encoder, RESP : Decoder](uri: Uri, body: REQ, headers: Headers = Headers.empty): IO[RESP] =
     postWithErrorHandler(uri, body, headers)(Map.empty)
 
@@ -47,6 +42,5 @@ case class HttpClient(client: Client[IO]) extends Logging {
     request
     .putHeaders(Accept(MediaType.`application/json`))
     .putHeaders(`Content-Type`(MediaType.`application/json`))
-
 
 }

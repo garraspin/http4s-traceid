@@ -3,18 +3,17 @@ package example
 import cats.effect.IO
 import example.Main.port
 import io.circe.generic.auto._
-import org.http4s.Status.Ok
-import org.http4s.dsl.io.{->, /, POST, Root}
+import org.http4s.dsl.io._
 import org.http4s.{EntityDecoder, EntityEncoder, HttpService, Status, Uri}
 import org.http4s.circe._
 
-class PongService(client: HttpClient) extends RequestHandling {
+class Api(client: HttpClient) extends Logging {
 
   def endpoints: HttpService[IO] =
     HttpService {
-      case req@POST -> Root / "ping" =>
+      case req@POST -> Root / "pong" =>
         implicit val decoder: EntityDecoder[IO, Ping] = jsonOf[IO, Ping]
-        implicit val encoder = jsonEncoderOf[IO, Pong]
+        implicit val encoder: EntityEncoder[IO, Pong] = jsonEncoderOf[IO, Pong]
         for {
           ping     <- req.as[Ping]
           _        <- IO { logger.info(s"Got $ping") }
@@ -32,6 +31,7 @@ class PongService(client: HttpClient) extends RequestHandling {
         implicit val encoder: EntityEncoder[IO, Pang] = jsonEncoderOf[IO, Pang]
         for {
           pang     <- IO { Pang("pang") }
+          _        <- IO { logger.info("Pang HS: " + req.headers.map(_.value).mkString(",")) }
           response <- Ok(pang)
         } yield response
 
@@ -40,6 +40,7 @@ class PongService(client: HttpClient) extends RequestHandling {
         implicit val encoder: EntityEncoder[IO, Peng] = jsonEncoderOf[IO, Peng]
         for {
           peng     <- IO { Peng("peng") }
+          _        <- IO { logger.info("Peng HS: " + req.headers.map(_.value).mkString(",")) }
           response <- Ok(peng)
         } yield response
     }
