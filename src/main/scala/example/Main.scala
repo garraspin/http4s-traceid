@@ -41,8 +41,7 @@ object Main extends StreamApp[IO] with Logging {
   override def stream(args: List[String], requestShutdown: IO[Unit]): Stream[IO, ExitCode] = {
     for {
       http4sclient <- Http1Client.stream[IO]()
-      client        = HttpClient(kamon.http4s.middleware.client.KamonSupport(http4sclient))
-      api           = new Api(client)
+      api           = new Api(kamon.http4s.middleware.client.KamonSupport(http4sclient))
       router        = Router("/" -> api.endpoints)
       exitCode     <- BlazeBuilder[IO]
         .bindHttp(port, "0.0.0.0")
