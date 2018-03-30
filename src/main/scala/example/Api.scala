@@ -23,9 +23,9 @@ class Api(client: Client[IO]) extends Logging {
         for {
           ping     <- req.as[Ping]
           _        <- IO { logger.info(s"Got $ping") }
-          pang     <- client.expect[Pang](Request[IO](POST, Uri.unsafeFromString(s"http://localhost:$port/pang")).withBody(ping).unsafeRunSync())
+          pang     <- client.expect[Pang](Request[IO](POST, Uri.unsafeFromString(s"http://localhost:$port/pang")).withBody(ping))
           _        <- IO { logger.info(s"Got $pang") }
-          peng     <- client.expect[Peng](Request[IO](POST, Uri.unsafeFromString(s"http://localhost:$port/peng")).withBody(ping).unsafeRunSync())
+          peng     <- client.expect[Peng](Request[IO](POST, Uri.unsafeFromString(s"http://localhost:$port/peng")).withBody(ping))
           _        <- IO { logger.info(s"Got $peng") }
           pong     <- IO { Pong(s"${ping.msg} ${pang.msg} ${peng.msg}") }
           _        <- IO { logger.info(s"Responding $pong") }
