@@ -10,3 +10,4 @@ lazy val root = (project in file(".")).
     name := "http4s-traceid",
     libraryDependencies ++= (http4s ++ logging ++ monitoring)
   )
+  .settings(scalacOptions ++= Seq("-Ypartial-unification", "-language:higherKinds"))
