@@ -5,6 +5,8 @@ import java.util.concurrent.{AbstractExecutorService, TimeUnit}
 
 import Main.logger
 import cats.effect.IO
+import cats.instances.list._
+import cats.syntax.traverse._
 import fs2.StreamApp.ExitCode
 import fs2.{Stream, StreamApp}
 import kamon.executors.util.ContextAwareExecutorService
@@ -58,11 +60,17 @@ object Main extends StreamApp[IO] with Logging {
           case req@GET -> Root / "foo" =>
             for {
               _   <- IO { 42 }
-              t1   = Thread.currentThread().getName
-              res <- client.expect[String](Request[IO](method = GET, uri = Uri.unsafeFromString(s"http://localhost:$port/bar"), headers = Headers.empty))
-              t2   = Thread.currentThread().getName
-              _    = if (t1 != t2) logger.info(s"Sometimes no TraceID when jumping from $t1 to $t2")
-              r   <- Ok(s"GET foo and $res")
+              resp <- (1 to 100).toList.traverse[IO, String]( _ => {
+                logger.info("A call is about to be made")
+                client
+                  .expect[String](Request[IO](method = GET, uri = Uri.unsafeFromString(s"http://localhost:10000/bar"), headers = Headers.empty)) //forcing exception throwing
+                  .attempt
+                  .map(rr => {
+                    logger.info(s"The call was made and returned an error")
+                    "_____"
+                  })
+              })
+              r   <- Ok(s"GET foo ")
             } yield r
 
           case req@GET -> Root / "bar" =>
