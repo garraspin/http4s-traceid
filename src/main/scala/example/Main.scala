@@ -1,7 +1,7 @@
 package example
 
 import java.util.Collections
-import java.util.concurrent.{AbstractExecutorService, TimeUnit}
+import java.util.concurrent.{AbstractExecutorService, Executor, Executors, TimeUnit}
 
 import Main.logger
 import cats.effect.IO
@@ -11,14 +11,14 @@ import fs2.StreamApp.ExitCode
 import fs2.{Stream, StreamApp}
 import kamon.executors.util.ContextAwareExecutorService
 import kamon.http4s.middleware._
-import org.http4s.client.blaze.Http1Client
+import org.http4s.client.blaze.{BlazeClientConfig, Http1Client}
 import org.http4s.dsl.io._
 import org.http4s.server.Router
 import org.http4s.server.blaze.BlazeBuilder
 import org.http4s.{Headers, HttpService, Request, Uri}
 import org.slf4j.LoggerFactory
 
-import scala.concurrent.{ExecutionContext, ExecutionContextExecutorService}
+import scala.concurrent.{ExecutionContext, ExecutionContextExecutor, ExecutionContextExecutorService}
 
 case class Ping(msg: String)
 case class Pong(msg: String)
@@ -47,40 +47,37 @@ object Main extends StreamApp[IO] with Logging {
     }
   }
 
-  implicit val ec: ExecutionContext = ExecutionContext.fromExecutorService(
-    ContextAwareExecutorService(ExecutionContextExecutorServiceBridge(ExecutionContext.global))
+  val tp = Executors.newScheduledThreadPool(10) //added just so that the thread would be named something else than Execution-Context-Global
+  val ec: ExecutionContext = ExecutionContext.fromExecutorService(
+    ContextAwareExecutorService(ExecutionContextExecutorServiceBridge(ExecutionContext.fromExecutor((command: Runnable) => tp.submit(command))))
   )
+  implicit val implicitEc: ExecutionContextExecutor = ExecutionContext.global //this is not really used when handling requests 
 
   override def stream(args: List[String], requestShutdown: IO[Unit]): Stream[IO, ExitCode] = {
     for {
-      http4sclient <- Http1Client.stream[IO]()
+      http4sclient <- Http1Client.stream[IO](BlazeClientConfig.defaultConfig.copy(executionContext = ec)) //<---------  IMPORTANT
       client        = kamon.http4s.middleware.client.KamonSupport(http4sclient)
       router  = Router(
         "/" -> HttpService[IO] {
-          case req@GET -> Root / "foo" =>
+          case GET -> Root / "foo" =>
             for {
-              _   <- IO { 42 }
-              resp <- (1 to 100).toList.traverse[IO, String]( _ => {
-                logger.info("A call is about to be made")
+              _ <- (1 to 100).toList.traverse[IO, String]( _ => {
                 client
-                  .expect[String](Request[IO](method = GET, uri = Uri.unsafeFromString(s"http://localhost:10000/bar"), headers = Headers.empty)) //forcing exception throwing
+                  .expect[String](Request[IO](method = GET, uri = Uri.unsafeFromString(s"http://localhost:10000/bar"), headers = Headers.empty))
                   .attempt
                   .map(rr => {
-                    logger.info(s"The call was made and returned an error")
-                    "_____"
+                    logger.info(s"The call was made and returned an error: ${rr}")
+                    ""
                   })
               })
-              r   <- Ok(s"GET foo ")
+              r   <- Ok(s"GET")
             } yield r
-
-          case req@GET -> Root / "bar" =>
-            logger.info("bar hs: " + req.headers.map(h => h.name -> h.value).mkString(", "))
-            Ok("bar")
         }
       )
 
       exitCode <- BlazeBuilder[IO]
         .bindHttp(port, "0.0.0.0")
+        .withExecutionContext(ec) //<-----------------------  IMPORTANT
         .mountService(server.KamonSupport(router))
         .serve
     } yield exitCode
