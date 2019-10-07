@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <configuration scan="false" scanPeriod="2 seconds">
     <statusListener class="ch.qos.logback.core.status.OnConsoleStatusListener"/>
-    <conversionRule conversionWord="traceID" converterClass="kamon.logback.LogbackTraceIDConverter" />
+    <conversionRule conversionWord="traceID" converterClass="kamon.instrumentation.logback.tools.TraceIDConverter" />
 
     <logger name="order-service" level="${LOGLEVEL_APP:-DEBUG}"/>
 
