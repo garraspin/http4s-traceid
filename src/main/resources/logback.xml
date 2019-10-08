@@ -3,7 +3,7 @@
     <statusListener class="ch.qos.logback.core.status.OnConsoleStatusListener"/>
     <conversionRule conversionWord="traceID" converterClass="kamon.instrumentation.logback.tools.TraceIDConverter" />
 
-    <logger name="order-service" level="${LOGLEVEL_APP:-DEBUG}"/>
+    <logger name="org.http4s.blaze.channel.nio1" level="ERROR" />
 
     <root level="${LOGLEVEL_ROOT:-INFO}">
         <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">

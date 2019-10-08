@@ -40,7 +40,6 @@ object Main extends IOApp {
       "/" -> HttpRoutes.of[IO] {
         case GET -> Root / "bar" / traceId =>
           logger.info(s"Client: called with traceId $traceId and current is $currentTraceId")
-          //          Thread.sleep(500)
           Ok(traceId)
         case GET -> Root / "foo" =>
           for {
